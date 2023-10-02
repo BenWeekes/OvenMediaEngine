@@ -29,6 +29,22 @@
 #define USE_LEGACY_LIBOPUS false
 #define MAX_QUEUE_SIZE 500
 
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavutil/imgutils.h>
+
+#include <libavutil/common.h>
+#include <libavutil/pixdesc.h>
+#include <libavformat/avformat.h>
+}
+
+//FIXME: how should we pass these params?
+//we will use 180P
+constexpr uint32_t mixerFrameHeight=180;
+
+//this will be updated later when we know input frame resolution
+uint32_t           mixerFrameWidth=320;
+
 TranscodeEncoder::TranscodeEncoder(info::Stream stream_info) : 
 	_stream_info(stream_info)
 {
@@ -57,6 +73,8 @@ TranscodeEncoder::~TranscodeEncoder()
 	OV_SAFE_FUNC(_frame, nullptr, ::av_frame_free, &);
 	OV_SAFE_FUNC(_packet, nullptr, ::av_packet_free, &);
 	OV_SAFE_FUNC(_codec_par, nullptr, ::avcodec_parameters_free, &);
+
+	OV_SAFE_FUNC(_avMixerFrame, nullptr, ::av_frame_free, &);
 
 	_input_buffer.Clear();
 }
@@ -254,8 +272,116 @@ std::shared_ptr<MediaTrack> &TranscodeEncoder::GetRefTrack()
 	return _track;
 }
 
+bool TranscodeEncoder::ScaleFrame(std::shared_ptr<const MediaFrame> srcFrame, AVFrame* dstFrame){
+  
+  auto ret=sws_scale_frame(_scaleContext,dstFrame,srcFrame->GetPrivData());
+  if(ret<=0){
+    
+	 logti("OME-DEBUG: ERROR: scaleFrame: cannot scale frame: %d", ret);
+     return false;
+  }  
+
+  return true;
+}
+
+bool TranscodeEncoder::CreateContext(AVPixelFormat format, const uint32_t& srcWidth, const uint32_t& srcHeight,
+                   const uint32_t& targetWidth, const uint32_t& targetHeight)
+{
+
+  AVPixelFormat sourceFormat=format;
+  AVPixelFormat targetFormat=format;
+  
+  if (_scaleContext!=nullptr) sws_freeContext(_scaleContext);	
+   
+   _scaleContext=sws_getContext(srcWidth, srcHeight,sourceFormat, 
+                                targetWidth, targetHeight,targetFormat,
+                                SWS_BICUBIC, 0, 0, 0);
+ 
+   if(_scaleContext==nullptr){
+      
+	  logti("OME-MIXER:: Error while creating a scale context");
+      return false;
+   }
+
+   return true;
+}
+
+AVFrame* TranscodeEncoder::CreateAvFrame(AVPixelFormat format,
+                     const uint32_t& width, const uint32_t& height)
+{
+
+	AVFrame *frame=av_frame_alloc();
+
+	frame->format = format;
+    frame->width  = width;
+    frame->height = height;
+
+	av_frame_get_buffer(frame, 32);
+
+	logti("OME-MIXER:: AV Frame has been created successfully");
+	
+    return frame;
+}
+
+void TranscodeEncoder::CopyFrameData(const AVFrame* dstFrame, const AVFrame* srcFrame,
+	                    const uint32_t& width, const uint32_t& height, const uint8_t& index)
+{
+    for (uint32_t y = 0; y < height; y++)
+	   for (uint32_t x = 0; x < width; x++)
+			dstFrame->data[index][y * dstFrame->linesize[index] + x] = 
+				       srcFrame->data[index][y * srcFrame->linesize[index] + x];
+
+			
+}
+void TranscodeEncoder::MixFrames(const std::shared_ptr<const MediaFrame>& dstFrame,
+	                                    const std::shared_ptr<const MediaFrame>& frame)
+{
+   auto format=frame->GetFormat();
+
+   if(_scaleContext==nullptr)
+   {
+	    double aratio = (double) frame->GetHeight() / frame->GetHeight();
+        mixerFrameWidth = aratio * mixerFrameHeight;
+   
+		CreateContext((AVPixelFormat)format, frame->GetWidth(),frame->GetHeight(),mixerFrameWidth,mixerFrameHeight);
+   }
+
+   if(_avMixerFrame==nullptr)
+   {
+      _avMixerFrame=CreateAvFrame((AVPixelFormat)format, mixerFrameWidth,mixerFrameHeight);
+   }
+   
+
+   if(!_scaleContext || !_avMixerFrame)
+   {
+      return;
+   }
+
+   if(!ScaleFrame(frame, _avMixerFrame))
+   {
+	  return;
+   }
+
+   AVFrame* dstFrameData=dstFrame->GetPrivData();
+
+   //copy scaled frame data into source one
+   CopyFrameData(dstFrameData, _avMixerFrame, mixerFrameWidth, mixerFrameHeight,0);
+   CopyFrameData(dstFrameData, _avMixerFrame, (uint32_t)(mixerFrameWidth/2.0), (uint32_t)(mixerFrameHeight/2.0),1);
+   CopyFrameData(dstFrameData, _avMixerFrame, (uint32_t)(mixerFrameWidth/2.0), (uint32_t)(mixerFrameHeight/2.0),2);
+}
+
 void TranscodeEncoder::SendBuffer(std::shared_ptr<const MediaFrame> frame)
 {
+	if(frame->GetMediaType()==cmn::MediaType::Video && !_mixerFrames.empty())
+	{
+	    auto mixedFrame=_mixerFrames.front();
+		_mixerFrames.pop();
+
+		MixFrames(frame, std::move(mixedFrame));
+
+		logti("OME-MIXER: TranscodeEncoder::SendBuffer, mixer queue size: %d", _mixerFrames.size());
+	}
+
 	_input_buffer.Enqueue(std::move(frame));
 }
 
@@ -279,3 +405,19 @@ void TranscodeEncoder::Stop()
 		logtd(ov::String::FormatString("encoder %s thread has ended", avcodec_get_name(GetCodecID())).CStr());
 	}
 }
+
+void TranscodeEncoder::OnMixerAppFrame(const std::shared_ptr<const MediaFrame>& frame)
+ {
+	constexpr size_t MAX_BUFFER_SIZE=500;
+
+    auto encoderSupportedFormat=GetBitstreamFormat();
+	if(encoderSupportedFormat==cmn::BitstreamFormat::H264_AVCC ||
+	  encoderSupportedFormat==cmn::BitstreamFormat::H264_ANNEXB ||
+	  encoderSupportedFormat==cmn::BitstreamFormat::VP8)
+	{
+        if(_mixerFrames.size()<MAX_BUFFER_SIZE)
+		{
+            _mixerFrames.emplace(frame);
+		}
+	}
+ }

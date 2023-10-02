@@ -54,6 +54,11 @@ public:
 
 	bool OnSendFrame(const std::shared_ptr<info::Stream> &stream, const std::shared_ptr<MediaPacket> &packet) override;
 
+	void RegisterMixerApplication(TranscodeApplication* app);
+
+	void OnMixerAppFrameDown(const std::shared_ptr<const MediaFrame>& frame);
+	void OnMixerAppFrameUp(const std::shared_ptr<const MediaFrame>& frame);
+
 private:
 	bool ValidateAppConfiguration();
 
@@ -61,4 +66,6 @@ private:
 	const info::Application _application_info;
 	std::map<int32_t, std::shared_ptr<TranscoderStream>> _streams;
 	std::mutex _mutex;
+
+	std::vector<TranscodeApplication*>  _mixedApps;
 };

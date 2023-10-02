@@ -13,6 +13,8 @@
 #include "mediarouter_private.h"
 #include "monitoring/monitoring.h"
 
+#include "transcoder/transcoder_application.h"
+
 
 #define MIN_APPLICATION_WORKER_COUNT 1
 #define MAX_APPLICATION_WORKER_COUNT 64
@@ -212,6 +214,30 @@ bool MediaRouteApplication::RegisterObserverApp(std::shared_ptr<MediaRouteApplic
 	_observers.push_back(observer);
 
 	logtd("Registered observer. app(%s) type(%d)", _application_info.GetName().CStr(), observer->GetObserverType());
+
+	return true;
+}
+
+bool MediaRouteApplication::RegisterMixerApp(
+		const std::shared_ptr<MediaRouteApplicationObserver>& observer)
+{
+   if (!observer || 
+         observer->GetObserverType()!=MediaRouteApplicationObserver::ObserverType::Transcoder)
+	{
+		return false;
+	}
+
+	for(auto& ob: _observers)
+	{
+		if(ob->GetObserverType()==MediaRouteApplicationObserver::ObserverType::Transcoder)
+		{
+            (dynamic_cast<TranscodeApplication*>(observer.get()))->RegisterMixerApplication((dynamic_cast<TranscodeApplication*>(ob.get())));
+
+		}
+	}
+
+	
+	logti("OME-MIXER: Registered mixed observer. app(%s) type(%d)", _application_info.GetName().CStr(), observer->GetObserverType());
 
 	return true;
 }

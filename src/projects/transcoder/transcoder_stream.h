@@ -94,6 +94,8 @@ public:
 	void NotifyDeleteStreams();
 	void NotifyUpdateStreams();
 
+	void OnMixerAppFrame(const std::shared_ptr<const MediaFrame>& frame);
+
 private:
 	ov::String _log_prefix;
 	std::shared_mutex _format_change_mutex;

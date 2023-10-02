@@ -1311,6 +1311,10 @@ TranscodeResult TranscoderStream::EncodeFrame(std::shared_ptr<const MediaFrame> 
 	}
 	auto encoder = encoder_map_it->second.get();
 
+    if(_parent&& frame->GetMediaType()==cmn::MediaType::Video){  
+	    _parent->OnMixerAppFrameUp(frame);
+	}
+
 	encoder->SendBuffer(std::move(frame));
 
 	return TranscodeResult::NoData;
@@ -1431,5 +1435,13 @@ void TranscoderStream::SpreadToFilters(int32_t decoder_id, std::shared_ptr<Media
 		}
 
 		FilterFrame(filter_id, std::move(frame_clone));
+	}
+}
+
+void TranscoderStream::OnMixerAppFrame(const std::shared_ptr<const MediaFrame>& frame)
+{
+    for (auto encoder: _encoders)
+	{
+		encoder.second->OnMixerAppFrame(frame);
 	}
 }

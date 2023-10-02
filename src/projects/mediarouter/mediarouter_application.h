@@ -62,6 +62,10 @@ public:
 	bool UnregisterObserverApp(
 		std::shared_ptr<MediaRouteApplicationObserver> observer);
 
+   
+	bool RegisterMixerApp(
+		const std::shared_ptr<MediaRouteApplicationObserver>& observer);
+
 public:
 	//////////////////////////////////////////////////////////////////////
 	// Interface for Stream and MediaPacket

@@ -207,3 +207,24 @@ bool TranscodeApplication::ValidateAppConfiguration()
 
 	return true;
 }
+
+void TranscodeApplication::RegisterMixerApplication(TranscodeApplication* app)
+{
+    _mixedApps.emplace_back(app);
+}
+
+void TranscodeApplication::OnMixerAppFrameUp(const std::shared_ptr<const MediaFrame>& frame)
+{
+  for(const auto& app: _mixedApps)
+  {
+	 app->OnMixerAppFrameDown(frame);
+  }
+}
+
+void TranscodeApplication::OnMixerAppFrameDown(const std::shared_ptr<const MediaFrame>& frame)
+{
+   for(const auto& stream: _streams)
+   {
+       stream.second->OnMixerAppFrame(frame);
+   }
+}

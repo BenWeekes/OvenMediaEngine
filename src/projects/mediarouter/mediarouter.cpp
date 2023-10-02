@@ -160,6 +160,18 @@ bool MediaRouter::RegisterObserverApp(
 		return false;
 	}
 
+	//FIXME: register this as mixing app observer to all applications created before this one 
+	//just for testing we assume rtmp app is running before the commentor one as per our config file
+	//We need to find a way to determine while app is registered to feed the other one (may be via config file).
+	for (auto app: _route_apps)
+	{
+		if(app.second!=media_route_app)
+		{
+			logti("OME-MIXER: Registering:  app(%s) observer", application_info.GetName().CStr());
+            app.second->RegisterMixerApp(application_observer);
+		}
+	}
+
 	return media_route_app->RegisterObserverApp(application_observer);
 }
 
