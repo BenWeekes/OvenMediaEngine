@@ -1440,6 +1440,12 @@ void TranscoderStream::SpreadToFilters(int32_t decoder_id, std::shared_ptr<Media
 
 void TranscoderStream::OnMixerAppFrame(const std::shared_ptr<const MediaFrame>& frame)
 {
+	//we do not need to mix if this stream is stopped
+	if(_is_stopped)
+	{
+		return;
+	}
+
     for (auto encoder: _encoders)
 	{
 		encoder.second->OnMixerAppFrame(frame);

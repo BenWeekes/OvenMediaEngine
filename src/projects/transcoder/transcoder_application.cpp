@@ -227,4 +227,5 @@ void TranscodeApplication::OnMixerAppFrameDown(const std::shared_ptr<const Media
    {
        stream.second->OnMixerAppFrame(frame);
    }
+
 }

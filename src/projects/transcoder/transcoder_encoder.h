@@ -46,24 +46,13 @@ public:
 		_complete_handler = move(complete_handler);
 	}
 
-	void OnMixerAppFrame(const std::shared_ptr<const MediaFrame>& frame);
+	virtual void OnMixerAppFrame(const std::shared_ptr<const MediaFrame>& frame)
+	{
+		//TODO: implement this function in codec child classes which support the mix
+	}
 
 private:
 	virtual bool SetCodecParams() = 0;
-
-	bool CreateContext(AVPixelFormat format, const uint32_t& srcWidth, const uint32_t& srcHeight,
-                   const uint32_t& targetWidth, const uint32_t& targetHeight);
-
-	bool ScaleFrame(std::shared_ptr<const MediaFrame> srcFrame, AVFrame* dstFrame);
-	void MixFrames(const std::shared_ptr<const MediaFrame>& dstFrame,
-	                        const std::shared_ptr<const MediaFrame>& Frame);
-
-    void CopyFrameData(const AVFrame* dstFrame, const AVFrame* srcFrame,
-	                    const uint32_t& width, const uint32_t& height, const uint8_t& index);
-
-	AVFrame* CreateAvFrame(AVPixelFormat format,
-                     const uint32_t& width, const uint32_t& height);
-
 protected:
 	std::shared_ptr<MediaTrack> _track = nullptr;
 
@@ -84,8 +73,4 @@ protected:
 	std::thread _codec_thread;
 
 	CompleteHandler _complete_handler;
-
-	std::queue<std::shared_ptr<const MediaFrame>>  _mixerFrames;
-	SwsContext* _scaleContext{nullptr};
-	AVFrame*    _avMixerFrame{nullptr};
 };
