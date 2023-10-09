@@ -1,0 +1,14 @@
+#for debug, just use make 
+#make
+
+#for release, type make release
+make release
+
+#for debuging, copy the debug version into the release dir
+#cp bin/DEBUG/OvenMediaEngine bin/RELEASE/ 
+
+sudo make install
+sudo systemctl daemon-reload
+sudo systemctl restart ovenmediaengine
+#tail -f -n 3000 /var/log/ovenmediaengine/ovenmediaengine.log|grep OME-DEBUG
+tail -f -n 3000 /var/log/ovenmediaengine/ovenmediaengine.log|grep OME-MIXER
