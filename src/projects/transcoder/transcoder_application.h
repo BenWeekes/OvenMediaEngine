@@ -56,7 +56,10 @@ public:
 
 	void RegisterMixerApplication(TranscodeApplication* app);
 
+    //app -> stream -> encoder
 	void OnMixerAppFrameDown(const std::shared_ptr<const MediaFrame>& frame);
+
+	//decoder - >app
 	void OnMixerAppFrameUp(const std::shared_ptr<const MediaFrame>& frame);
 
 private:

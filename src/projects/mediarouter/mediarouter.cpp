@@ -161,7 +161,7 @@ bool MediaRouter::RegisterObserverApp(
 	}
 
 	//FIXME: register this as mixing app observer to all applications created before this one 
-	//just for testing we assume rtmp app is running before the commentor one as per our config file
+	//just for testing, we assume rtmp app is running before the commentor one as per our config file
 	//We need to find a way to determine while app is registered to feed the other one (may be via config file).
 	for (auto app: _route_apps)
 	{
